@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+  <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
+    integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+    crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+    integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A=="
+    crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <title>Dashboard</title>
+  <style>
+    .card {
+      background-image: url(//Static/movie_background.png);
+    }
+
+    .card-title {
+      overflow-wrap: break-all;
+    }
+    
+    .dashboard {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .stats {
+      display: flex;
+      justify-content: space-around;
+      width: 100%;
+      max-width: 1200px;
+      margin-bottom: 20px;
+    }
+
+    .stat {
+      background-color: rgb(183, 177, 177);
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      text-align: center;
+      width: 250px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition-duration: 0.5s;
+    }
+
+    .stat:hover {
+      transform: scale(0.9);
+    }
+
+    .stat-icon {
+      font-size: 24px;
+      margin-right: 15px;
+    }
+
+    .stat-text {
+      text-align: left;
+    }
+
+    .stat h3 {
+      margin: 0;
+      font-size: 24px;
+    }
+
+    .stat p {
+      margin: 0;
+      font-size: 16px;
+      color: rgb(44, 43, 43);
+    }
+
+    .autocomplete-suggestions {
+      border: 1px solid #ccc;
+      max-height: 150px;
+      overflow-y: scroll;
+      position: fixed;
+      background-color: #fff;
+      width: 100%;
+    }
+
+    .autocomplete-suggestion {
+      padding: 5px;
+      cursor: pointer;
+    }
+
+    .autocomplete-suggestion:hover {
+      background-color: #ddd;
+    }
+
+    .unclickable-suggestion {
+      color: rgb(216, 1, 1);
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+
+<body>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const queryInput = document.getElementById('query');
+      const categorySelect = document.getElementById('category');
+      const search_button = document.getElementById('search_input');
+      const autocompleteResults = document.getElementById('autocomplete-results');
+      let currentFetchController;
+
+      queryInput.addEventListener('input', function () {
+        const query = queryInput.value;
+        const category = categorySelect.value;
+        if (category && query) {
+          fetchSuggestions(category, query);
+        }
+        else {
+          autocompleteResults.innerHTML = '';
+          autocompleteResults.style.display = 'none';
+          search_button.disabled = true;
+        }
+      });
+
+      categorySelect.addEventListener('change', function () {
+        queryInput.value = '';
+        autocompleteResults.innerHTML = '';
+        autocompleteResults.style.display = 'none';
+        search_button.disabled = true;
+        if (currentFetchController) {
+          currentFetchController.abort();
+        }
+      });
+
+      function fetchSuggestions(category, query) {
+        if (currentFetchController) {
+          currentFetchController.abort();
+        }
+
+        currentFetchController = new AbortController();
+        const { signal } = currentFetchController;
+        const formData = new FormData();
+        search_button.disabled = false;
+        formData.append('category', category);
+        formData.append('query', query);
+        fetch('/get_suggestions', {
+          method: 'POST',
+          body: formData,
+          signal
+        })
+          .then(response => response.json())
+          .then(data => {
+            autocompleteResults.innerHTML = '';
+            if (data.suggestions.length > 0) {
+              data.suggestions.forEach(suggestion => {
+                const suggestionItem = document.createElement('div');
+                suggestionItem.classList.add('autocomplete-suggestion');
+                suggestionItem.textContent = suggestion;
+
+                if (suggestion === 'Please Select Category') {
+                  suggestionItem.classList.add('unclickable-suggestion');
+                  search_button.disabled = true;
+                } else {
+                  suggestionItem.addEventListener('click', function () {
+                    queryInput.value = suggestion;
+                    autocompleteResults.innerHTML = '';
+                    autocompleteResults.style.display = 'none';
+                  });
+                }
+
+                autocompleteResults.appendChild(suggestionItem);
+              });
+              autocompleteResults.style.display = 'block';
+            } else {
+              autocompleteResults.style.display = 'none';
+            }
+          })
+          .catch(error => {
+            if (error.name !== 'AbortError') {
+              console.error('Fetch error:', error);
+            }
+          });
+      }
+
+      document.addEventListener('click', function (event) {
+        if (!autocompleteResults.contains(event.target) && !queryInput.contains(event.target)) {
+          autocompleteResults.style.display = 'none';
+        }
+      });
+    });
+  </script>
+  <header>
+    <nav class="navbar fixed-top bg-body-tertiary">
+      <div class="container-fluid" style="background-color: #686D76;padding-bottom: 20px;padding-top: 20px;">
+        <h1 class="navbar-brand m-auto fs-2">Dashboard</h1>
+        <div class="dropdown">
+          <form class="d-flex" role="search" method="post">
+            <select class="form-select border border-rounded" name="category" id="category"
+              aria-label="Default select example">
+              <option value="select_category" selected disabled>Select Category</option>
+              <option value="Movie">Movie</option>
+              <option value="TV Shows">TV Shows</option>
+              <option value="Year">Year</option>
+              <option value="Maturity Rating">Maturity Rating</option>
+            </select>&nbsp;&nbsp;
+            <input class="form-control me-2" type="search" placeholder="Search" aria-label="Search" name="query"
+              id="query" autocomplete="off">
+            <button class="btn btn-outline-dark bg-primary-subtle" id="search_input" type="submit" formaction="/search"
+              disabled><i class="fa-solid fa-magnifying-glass"></i></button>
+          </form>
+          <div id="autocomplete-results" class="autocomplete-suggestions"
+            class="{% if data == 'Please Select Category' %}text-danger{% endif %}"
+            style="border-radius: 10px;display: none;">{{data}}</div>
+        </div>
+    </nav>
+  </header>
+  <section style="overflow: hidden;margin-top: 100px;">
+    <div>
+      <div class="dashboard">
+        <div class="stats">
+          <div class="stat">
+            <i class="fas fa-film stat-icon"></i>
+            <div class="stat-text">
+              <h3>{{ stats.total_movies_shows }}</h3>
+              <p style="font-family:'Times New Roman', Times, serif;">Total Movies & Shows</p>
+            </div>
+          </div>
+          <div class="stat">
+            <i class="fas fa-video stat-icon"></i>
+            <div class="stat-text">
+              <h3>{{ stats.total_movies }}</h3>
+              <p style="font-family:'Times New Roman', Times, serif">Total Movies</p>
+            </div>
+          </div>
+          <div class="stat">
+            <i class="fas fa-tv stat-icon"></i>
+            <div class="stat-text">
+              <h3>{{ stats.total_shows }}</h3>
+              <p style="font-family:'Times New Roman', Times, serif">Total Shows</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div id="pie_chart">
+        <img src="data:image/png;base64,{{ doughnut_plot }}" alt='Failed to retrieve data'>
+        <img src="data:image/png;base64,{{ bar_plot }}" width="610px" alt='Failed to retrieve data'>
+      </div>
+    </div>
+  </section>
+</body>
+
+</html>
